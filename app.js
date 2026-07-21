@@ -16,6 +16,18 @@ const db = mysql.createPool({
 app.set('view engine', 'ejs');
 app.use(express.static('public'));
 
+
+ 
+// Austin - 25005454 - Login and registration
+// ==================================================
+
+const { createAuth } = require('./auth');
+const { router: authRouter, sessionMiddleware } = createAuth(db);
+
+app.use(express.urlencoded({ extended: false }));
+app.use(sessionMiddleware);
+app.use(authRouter);
+
 // DEV ONLY — remove on integration. Fakes a logged-in admin so pages render.
 // Replace with the real requireAdmin middleware from the auth slice.
 app.use((req, res, next) => {
@@ -39,8 +51,6 @@ function buildFilter({ status, date }) {
     if (date) { where.push('r.reservation_date = ?'); params.push(date); }
     return { clause: where.length ? ' WHERE ' + where.join(' AND ') : '', params };
 }
-
-app.get('/', (req, res) => res.redirect('/admin'));
 
 app.get('/admin', async (req, res) => {
     try {
