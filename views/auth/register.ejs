@@ -1,0 +1,88 @@
+<!-- Austin - 25005454 -->
+<!-- Registration page for user and authorized admin accounts. -->
+
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Register</title>
+</head>
+
+<body>
+    <main>
+        <h1>Create account</h1>
+
+        <% if (error) { %>
+            <p role="alert"><%= error %></p>
+        <% } %>
+
+        <form method="post" action="/register">
+            <label>
+                Name
+                <input
+                    type="text"
+                    name="name"
+                    value="<%= values.name || '' %>"
+                    required
+                    autocomplete="name"
+                >
+            </label>
+
+            <br>
+
+            <label>
+                Email
+                <input
+                    type="email"
+                    name="email"
+                    value="<%= values.email || '' %>"
+                    required
+                    autocomplete="email"
+                >
+            </label>
+
+            <br>
+
+            <label>
+                Password
+                <input
+                    type="password"
+                    name="password"
+                    minlength="8"
+                    required
+                    autocomplete="new-password"
+                >
+            </label>
+
+            <br>
+
+            <label>
+                Account type
+                <select name="role">
+                    <option value="user" <%= values.role !== 'admin' ? 'selected' : '' %>>
+                        User
+                    </option>
+
+                    <option value="admin" <%= values.role === 'admin' ? 'selected' : '' %>>
+                        Admin
+                    </option>
+                </select>
+            </label>
+
+            <br>
+
+            <label>
+                Admin registration code (admin only)
+                <input type="password" name="adminCode" autocomplete="off">
+            </label>
+
+            <br>
+
+            <button type="submit">Register</button>
+        </form>
+
+        <p>Already registered? <a href="/login">Login</a></p>
+    </main>
+</body>
+</html>
