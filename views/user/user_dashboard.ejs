@@ -1,1 +1,130 @@
+<%- include('../_head', { title: 'My Dashboard' }) %>
 
+<div class="row">
+  <!-- Left Column: User Info & New Reservation -->
+  <div class="col-md-4">
+    <div class="card mb-3">
+      <div class="card-header">
+        <h5>Welcome, <%= currentUser.name %>!</h5>
+      </div>
+      <div class="card-body">
+        <p><strong>Email:</strong> <%= currentUser.email %></p>
+        <p><strong>Role:</strong> <span class="badge text-bg-info"><%= currentUser.role %></span></p>
+      </div>
+    </div>
+
+    <!-- New Reservation Form -->
+    <div class="card">
+      <div class="card-header">
+        <h5>Make a Reservation</h5>
+      </div>
+      <div class="card-body">
+        <form action="/user/reservations" method="POST">
+          <div class="mb-2">
+            <label class="form-label small">Select Table</label>
+            <select class="form-select form-select-sm" name="table_id" required>
+              <option value="">Choose a table...</option>
+              <% availableTables.forEach(table => { %>
+                <option value="<%= table.id %>">Table <%= table.table_number %> (Capacity: <%= table.capacity %>) - <%= table.location %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Party Size</label>
+            <input type="number" class="form-control form-control-sm" name="party_size" min="1" max="20" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Date</label>
+            <input type="date" class="form-control form-control-sm" name="reservation_date" min="<%= new Date().toISOString().split('T')[0] %>" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Time Slot</label>
+            <select class="form-select form-select-sm" name="time_slot" required>
+                <option value="">Select Time</option>
+                <option value="17:00">5:00 PM</option>
+                <option value="17:30">5:30 PM</option> 
+                <option value="18:00">6:00 PM</option>
+                <option value="18:30">6:30 PM</option>  
+                <option value="19:00">7:00 PM</option>
+                <option value="19:30">7:30 PM</option>  
+                <option value="20:00">8:00 PM</option>
+                <option value="20:30">8:30 PM</option> 
+                <option value="21:00">9:00 PM</option>
+                <option value="21:30">9:30 PM</option>  
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Special Remarks</label>
+            <input type="text" class="form-control form-control-sm" name="remarks" placeholder="Dietary restrictions, special requests...">
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm w-100">Book Table</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Column: My Reservations -->
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5>My Reservations</h5>
+        <span class="badge text-bg-secondary"><%= myReservations.length %> total</span>
+      </div>
+      <div class="card-body">
+        <% if (myReservations.length === 0) { %>
+          <div class="text-center py-4">
+            <p class="text-muted">You have no reservations yet.</p>
+            <p class="small">Use the form on the left to book a table!</p>
+          </div>
+        <% } else { %>
+          <div class="table-responsive">
+            <table class="table table-hover small">
+              <thead>
+                <tr>
+                  <th>Table</th>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>Party</th>
+                  <th>Remarks</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% myReservations.forEach(r => { %>
+                  <tr>
+                    <td><strong>Table <%= r.table_number %></strong></td>
+                    <td><%= r.reservation_date %></td>
+                    <td><%= r.time_slot %></td>
+                    <td><%= r.party_size %></td>
+                    <td class="text-truncate" style="max-width: 100px;" title="<%= r.remarks || '' %>">
+                      <%= r.remarks || '-' %>
+                    </td>
+                    <td>
+                      <span class="badge text-bg-<%= badge[r.status] %>">
+                        <%= r.status %>
+                      </span>
+                    </td>
+                    <td>
+                      <% if (r.status === 'pending') { %>
+                        <a href="/user/reservations/<%= r.id %>/edit" class="btn btn-sm btn-outline-primary">Edit</a>
+                        <form action="/user/reservations/<%= r.id %>/delete" method="POST" style="display: inline;" 
+                              onsubmit="return confirm('Are you sure you want to cancel this reservation?')">
+                          <button type="submit" class="btn btn-sm btn-outline-danger">Cancel</button>
+                        </form>
+                      <% } else { %>
+                        <span class="text-muted small">No actions</span>
+                      <% } %>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../_foot') %>
