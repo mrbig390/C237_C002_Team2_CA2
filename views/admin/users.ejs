@@ -1,0 +1,26 @@
+<%- include('_head', { title: 'Users' }) %>
+
+<% if (rows.length === 0) { %>
+  <p class="text-muted">No users found.</p>
+<% } else { %>
+  <table class="table table-hover small">
+    <thead>
+      <tr><th>#</th><th>Name</th><th>Email</th><th>Role</th><th>Joined</th></tr>
+    </thead>
+    <tbody>
+      <% for (const u of rows) { %>
+        <tr>
+          <td><%= u.id %></td>
+          <td><%= u.name %></td>
+          <td><%= u.email %></td>
+          <td>
+            <span class="badge text-bg-<%= u.role === 'admin' ? 'dark' : 'light' %>"><%= u.role %></span>
+          </td>
+          <td><%= String(u.created_at).slice(0, 10) %></td>
+        </tr>
+      <% } %>
+    </tbody>
+  </table>
+<% } %>
+
+<%- include('_foot') %>

@@ -1,0 +1,58 @@
+<%- include('_head', { title: 'Dashboard' }) %>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card text-center"><div class="card-body">
+      <div class="display-6"><%= totalReservations %></div>
+      <div class="text-muted small">Reservations</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-center"><div class="card-body">
+      <div class="display-6"><%= totals.tables %></div>
+      <div class="text-muted small">Tables</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-center"><div class="card-body">
+      <div class="display-6"><%= totals.users %></div>
+      <div class="text-muted small">Users</div>
+    </div></div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <% for (const status of Object.keys(badge)) { %>
+    <div class="col-6 col-md-3">
+      <div class="card text-center"><div class="card-body">
+        <div class="display-6"><%= counts[status] || 0 %></div>
+        <span class="badge text-bg-<%= badge[status] %>"><%= status %></span>
+      </div></div>
+    </div>
+  <% } %>
+</div>
+
+<h4>Upcoming</h4>
+<% if (upcoming.length === 0) { %>
+  <p class="text-muted">No upcoming reservations.</p>
+<% } else { %>
+  <table class="table table-hover small">
+    <thead>
+      <tr><th>#</th><th>Customer</th><th>Table</th><th>Date</th><th>Slot</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      <% for (const r of upcoming) { %>
+        <tr>
+          <td><%= r.id %></td>
+          <td><%= r.customer_name %></td>
+          <td><%= r.table_number %></td>
+          <td><%= r.reservation_date %></td>
+          <td><%= r.time_slot %></td>
+          <td><span class="badge text-bg-<%= badge[r.status] %>"><%= r.status %></span></td>
+        </tr>
+      <% } %>
+    </tbody>
+  </table>
+<% } %>
+
+<%- include('_foot') %>
