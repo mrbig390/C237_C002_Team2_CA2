@@ -1,6 +1,8 @@
 const express = require('express');
 const mysql = require('mysql2/promise');
 const app = express();
+const session = require('express-session');
+const { createAuthRouter, requireRole } = require('./auth');
 
 const db = mysql.createPool({
     host: process.env.DB_HOST || 'c237-marlina-mysql.mysql.database.azure.com',
@@ -15,6 +17,15 @@ const db = mysql.createPool({
 
 app.set('view engine', 'ejs');
 app.use(express.static('public'));
+
+// austin - 25005454: parse authentication forms and keep users logged in.
+app.use(express.urlencoded({ extended: false }));
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'change-this-session-secret-in-production',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production' }
+}));
 
 // DEV ONLY — remove on integration. Fakes a logged-in admin so pages render.
 // Replace with the real requireAdmin middleware from the auth slice.
@@ -31,6 +42,17 @@ app.use((req, res, next) => {
     };
     next();
 });
+
+
+app.use(createAuthRouter(db));
+app.use((req, res, next) => {
+    req.session.user = req.session.authUser || null;
+    res.locals.currentUser = req.session.user;
+    next();
+});
+app.use('/admin', requireRole('admin'));
+app.use('/user', requireRole('user'));
+
 
 // ponytail: two optional filters, so a two-branch builder. Generalize if a third arrives.
 function buildFilter({ status, date }) {
