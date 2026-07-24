@@ -3,9 +3,8 @@ const express = require('express');
 const mysql = require('mysql2');
 const session = require('express-session');
 const crypto = require('crypto');
-const flash = require('connect-flash'); // ernest: already a dependency but never wired up.
-const multer = require('multer'); // joel/ernest — table picture upload (L18 pattern), was a stated
-                                   // requirement ("location(picture)") that nothing implemented.
+const flash = require('connect-flash');
+const multer = require('multer');
 const fs = require('fs');
 
 const app = express();
@@ -18,12 +17,9 @@ fs.mkdirSync('public/images', { recursive: true });
 // Set up multer for table-picture uploads, same pattern as L18 (Image Upload).
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, 'public/images'); // Directory to save uploaded files
+        cb(null, 'public/images');
     },
     filename: (req, file, cb) => {
-        // FIX: the PDF's filename callback keeps file.originalname as-is, which lets two
-        // different uploads named the same thing silently overwrite each other. Prefixing
-        // with a timestamp keeps every upload's filename unique.
         cb(null, Date.now() + '-' + file.originalname);
     }
 });
@@ -43,7 +39,7 @@ const db = mysql.createConnection({
 
 // createConnection opens one connection and, unlike a pool, an unhandled connection
 // error kills the whole Node process. This logs it instead so the app stays up if the
-// database blips. Delete these two lines if you want the connection block on its own.
+// database blips.
 db.connection.on('error', (err) => console.error('Database connection error:', err.code));
 
 // Code someone must type to register an admin account. Fixed value so the app works
@@ -62,23 +58,9 @@ app.use(session({
     cookie: { secure: false }
 }));
 
-// ernest — flash messages: admin actions used to dead-end on a blank error page
-// (res.status(400).send('...')), which left the admin stranded with no way back.
-// Flash stores a one-shot message in the session, then redirects to the list, so
-// the result of every action shows up as a banner on the page they came from.
 app.use(flash());
 
-// ===== AUTH HELPERS (formerly auth.js) =====
-// ernest — hashing: uses SHA1 the way it was taught in class (L19 RegistrationApp), i.e.
-// MySQL's own SHA1(password) inside the SQL statement. That needs no extra npm
-// package, which matters because the previous bcryptjs version crashed on startup
-// (`Cannot find module 'bcryptjs'`) — it was never added to package.json.
-// FIX: this file's comments/queries previously said SHA2(x, 512) even though the PDF
-// only teaches SHA1(?) (L19, slide "app.js – /login route") — switched everything back
-// to SHA1 so the code matches what was actually taught.
-// SHA1(x) returns a 40-character hex digest, stored in users.password_hash.
-// These two helpers are the JavaScript equivalent of that same digest, kept so the
-// module exports (and any tests) still have a hash/verify pair to call.
+// ===== AUTH HELPERS =====
 function hashPassword(password) {
     return crypto.createHash('sha1').update(String(password)).digest('hex');
 }
@@ -96,15 +78,11 @@ function redirectFor(role) {
     return role === 'admin' ? '/admin' : '/user/dashboard';
 }
 
-// FIX: added — "no past dates" was a named requirement but nothing enforced it anywhere.
-// Compares as plain Y-M-D strings, which is safe since dateStrings:true keeps DATE
-// columns as 'YYYY-MM-DD' and <input type="date"> submits the same format.
 function isPastDate(dateStr) {
     const today = new Date().toISOString().slice(0, 10);
     return String(dateStr) < today;
 }
 
-// Protects a route so only a logged-in user with the given role can reach it.
 function requireRole(role) {
     return (req, res, next) => {
         const user = req.session && req.session.user;
@@ -114,8 +92,6 @@ function requireRole(role) {
     };
 }
 
-// Runs on every request: exposes the logged-in user (if any) and the status-badge
-// map to every view, so admin_head.ejs etc. can always read currentUser/badge.
 app.use((req, res, next) => {
     res.locals.currentUser = req.session.user || null;
     res.locals.flashSuccess = req.flash('success');
@@ -129,10 +105,6 @@ app.use((req, res, next) => {
     next();
 });
 
-// ernest — search: added a `q` term on top of the existing status/date filters so an
-// admin can find a booking by customer name or email without scrolling the whole list.
-// LIKE with a parameterised %term% keeps it injection-safe; the term is trimmed so a
-// stray space doesn't return zero rows.
 function buildFilter({ status, date, q }) {
     const where = [], params = [];
     if (status) { where.push('r.status = ?'); params.push(status); }
@@ -145,9 +117,6 @@ function buildFilter({ status, date, q }) {
     return { clause: where.length ? ' WHERE ' + where.join(' AND ') : '', params };
 }
 
-// hanif — sorting: whitelist of sortable columns per admin list, keyed by the ?sort=
-// value a link sends. Whitelisting (rather than using req.query.sort directly in SQL)
-// is what keeps this safe from SQL injection via the query string.
 const SORT_COLUMNS = {
     reservations: {
         id: 'r.id', customer: 'u.name', table: 't.table_number',
@@ -161,9 +130,6 @@ const SORT_COLUMNS = {
     }
 };
 
-// Resolves ?sort=&dir= against the whitelist for `view`, falling back to defaultCol/defaultDir
-// when the value is missing or not recognised. Returns the ORDER BY clause plus the
-// normalised sort/dir so the view can render sort-arrow indicators.
 function buildSort(view, query, defaultCol, defaultDir = 'asc') {
     const cols = SORT_COLUMNS[view];
     const sort = cols[query.sort] ? query.sort : defaultCol;
@@ -171,17 +137,13 @@ function buildSort(view, query, defaultCol, defaultDir = 'asc') {
     return { orderBy: `ORDER BY ${cols[sort]} ${dir.toUpperCase()}`, sort, dir };
 }
 
-// Builds an href for a sortable column header that preserves any other query params
-// (e.g. the reservations status/date filter) and flips direction on repeat clicks.
 function sortLink(baseQuery, col, currentSort, currentDir) {
     const nextDir = currentSort === col && currentDir === 'asc' ? 'desc' : 'asc';
     const params = new URLSearchParams({ ...baseQuery, sort: col, dir: nextDir });
     return '?' + params.toString();
 }
 
-// Landing route: send people where their role can actually go. Previously this always
-// redirected to /admin, so a logged-in customer hitting the site root got "Access denied"
-// from requireRole instead of their own dashboard.
+// Landing route
 app.get('/', (req, res) => {
     if (!req.session.user) return res.redirect('/login');
     res.redirect(redirectFor(req.session.user.role));
@@ -200,9 +162,6 @@ app.post('/login', async (req, res) => {
     const values = { email, role };
 
     try {
-        // ernest — hashing: the password is hashed by MySQL with SHA1(?) and matched
-        // against the stored digest in the same query, so the plain password is never
-        // compared in JavaScript. Still parameterised (?), so it stays injection-safe.
         const [rows] = await db.query(
             'SELECT id, name, email, role FROM users WHERE email = ? AND password_hash = SHA1(?) LIMIT 1',
             [email, password]
@@ -248,15 +207,11 @@ app.post('/register', async (req, res) => {
     if (password !== confirmPassword) {
         return res.status(400).render('auth/register', { error: 'Passwords do not match.', values });
     }
-    // Only admin signups need a code — a plain "user" registration never checks this at
-    // all. The code is the fixed value in ADMIN_REGISTRATION_CODE at the top of this file.
     if (role === 'admin' && req.body.adminCode !== ADMIN_REGISTRATION_CODE) {
         return res.status(403).render('auth/register', { error: 'Invalid admin registration code.', values });
     }
 
     try {
-        // ernest — hashing: SHA1(?) hashes the password inside the INSERT, matching
-        // the digest format the login query checks against.
         const [result] = await db.query(
             'INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, SHA1(?), ?)',
             [name, email, password, role]
@@ -340,9 +295,6 @@ app.get('/admin/reservations', requireRole('admin'), async (req, res) => {
     }
 });
 
-// hanif — delete: hard-deletes a reservation outright. Distinct from a user's own
-// "cancel" (which just flips status to 'cancelled' and keeps the row for history) —
-// this is for admins clearing out junk/duplicate/test rows entirely.
 app.post('/admin/reservations/:id/delete', requireRole('admin'), async (req, res) => {
     try {
         await db.query('DELETE FROM reservations WHERE id = ?', [req.params.id]);
@@ -370,9 +322,6 @@ app.get('/admin/tables', requireRole('admin'), async (req, res) => {
     }
 });
 
-// hanif — delete: blocked while the table still has live bookings, since restaurant_tables
-// has ON DELETE CASCADE on reservations — deleting it here would silently wipe those
-// reservations instead of erroring. Forces the admin to resolve them first.
 app.post('/admin/tables/:id/delete', requireRole('admin'), async (req, res) => {
     const tableId = req.params.id;
     try {
@@ -409,10 +358,6 @@ app.get('/admin/users', requireRole('admin'), async (req, res) => {
     }
 });
 
-// hanif — delete + access control: blocks deleting your own logged-in account (would
-// strand the session mid-request), blocks removing the last remaining admin (would
-// lock everyone out of /admin permanently), and blocks deleting a user who still has
-// live reservations (same cascade-wipe risk as tables above).
 app.post('/admin/users/:id/delete', requireRole('admin'), async (req, res) => {
     const userId = req.params.id;
 
@@ -454,30 +399,14 @@ app.post('/admin/users/:id/delete', requireRole('admin'), async (req, res) => {
     }
 });
 
+// ============ ADMIN MANAGEMENT ============
 
-// ============ ADMIN MANAGEMENT (ernest) ============
-
-// Valid statuses an admin may set, and which ones occupy a table's slot.
 const RESERVATION_STATUSES = ['pending', 'confirmed', 'rejected', 'cancelled'];
 const LIVE_STATUSES = ['pending', 'confirmed'];
 
-// ernest — approve / reject / update booking status. This is the piece that makes the
-// admin side a workflow rather than a read-only list: a customer's booking arrives as
-// 'pending' and stays invisible to the restaurant floor until someone acts on it.
-// Two guards worth explaining:
-//  1. The requested status is checked against a whitelist, so a hand-edited form can't
-//     write an arbitrary value into the ENUM column.
-//  2. Moving a booking back into a live state (pending/confirmed) re-occupies that
-//     table+date+slot, so it is re-checked for a clash first. Without this, rejecting a
-//     booking, letting someone else take the slot, then re-confirming the first one
-//     would double-book the table — the one case the create/edit checks can't catch.
 app.post('/admin/reservations/:id/status', requireRole('admin'), async (req, res) => {
     const reservationId = req.params.id;
     const status = String(req.body.status || '');
-    // FIX: cancellation_reason existed in the schema and was shown on the admin list,
-    // but nothing ever wrote to it from this route — an admin rejecting/cancelling a
-    // booking had no way to record why. Only kept for rejected/cancelled; cleared if the
-    // booking is moved back to pending/confirmed.
     const reason = ['rejected', 'cancelled'].includes(status)
         ? (String(req.body.reason || '').trim() || null)
         : null;
@@ -524,8 +453,6 @@ app.post('/admin/reservations/:id/status', requireRole('admin'), async (req, res
     }
 });
 
-// ernest — shared validation for the add and edit table forms, so both entry points
-// enforce the same rules instead of trusting the HTML min/required attributes.
 function validateTable({ table_number, capacity, location }) {
     const number = String(table_number || '').trim();
     const seats = Number(capacity);
@@ -540,8 +467,6 @@ app.get('/admin/tables/new', requireRole('admin'), (req, res) => {
     res.render('admin/admin_table_form', { table: null, values: { table_number: '', capacity: '', location: '', image: null } });
 });
 
-// FIX: upload.single('image') added — this route had no way to receive the picture the
-// admin form now sends, and previously never wrote to restaurant_tables.image at all.
 app.post('/admin/tables', requireRole('admin'), upload.single('image'), async (req, res) => {
     const { error, value } = validateTable(req.body);
     if (error) {
@@ -557,7 +482,6 @@ app.post('/admin/tables', requireRole('admin'), upload.single('image'), async (r
         req.flash('success', `Table ${value.table_number} added.`);
         res.redirect('/admin/tables');
     } catch (err) {
-        // table_number has a UNIQUE key, so a duplicate is an expected outcome, not a crash.
         if (err.code === 'ER_DUP_ENTRY') {
             req.flash('error', `Table ${value.table_number} already exists.`);
             return res.redirect('/admin/tables/new');
@@ -586,12 +510,6 @@ app.get('/admin/tables/:id/edit', requireRole('admin'), async (req, res) => {
     }
 });
 
-// ernest — editing a table's capacity can strand bookings that were valid when made
-// (party of 6 on a table just shrunk to 4), so shrinking is blocked while any live
-// booking is already larger than the new capacity. The admin has to resolve those
-// bookings first, which keeps the party_size <= capacity rule true for existing rows
-// and not just for new ones.
-// FIX: upload.single('image') added, same as the add-table route.
 app.post('/admin/tables/:id/update', requireRole('admin'), upload.single('image'), async (req, res) => {
     const tableId = req.params.id;
     const { error, value } = validateTable(req.body);
@@ -599,9 +517,6 @@ app.post('/admin/tables/:id/update', requireRole('admin'), upload.single('image'
         req.flash('error', error);
         return res.redirect(`/admin/tables/${tableId}/edit`);
     }
-    // FIX: if the admin doesn't pick a new file, keep the picture that's already saved
-    // (its filename travels through the form as a hidden "currentImage" field) instead
-    // of wiping it out — matches the editProduct pattern from L18.
     let image = req.body.currentImage || null;
     if (req.file) image = req.file.filename;
     try {
@@ -636,10 +551,6 @@ app.post('/admin/tables/:id/update', requireRole('admin'), upload.single('image'
     }
 });
 
-// ernest — role management. Same two lockout guards as the delete route: you cannot
-// demote yourself (you would lose access to /admin on the very next request), and you
-// cannot demote the last remaining admin (nobody could ever administer the system
-// again). The count is taken before the update so the check can't be raced past.
 app.post('/admin/users/:id/role', requireRole('admin'), async (req, res) => {
     const userId = Number(req.params.id);
     const role = normaliseRole(req.body.role);
@@ -677,12 +588,6 @@ app.post('/admin/users/:id/role', requireRole('admin'), async (req, res) => {
     }
 });
 
-// Change Password — self-service. Any logged-in admin can change their own password;
-// this matters because the seeded admin account ships with the weak, well-known default
-// password "admin", so this is the way out of that without touching the database by hand.
-// Requires the CURRENT password (checked the same way login does, with SHA1 inside the
-// query) so a session left open on a shared machine can't be used to lock the real admin
-// out by silently changing their password.
 app.get('/admin/change-password', requireRole('admin'), (req, res) => {
     res.render('admin/admin_change_password', { error: null });
 });
@@ -720,15 +625,8 @@ app.post('/admin/change-password', requireRole('admin'), async (req, res) => {
 
 // ============ USER ROUTES ============
 
-// The seatings the restaurant offers. Single source of truth: the availability
-// endpoint below subtracts what's already booked from this list, so the booking form
-// can never offer a slot that is taken. Previously both forms had this list hardcoded
-// as <option> tags, which meant the dropdown happily offered slots that were full.
 const TIME_SLOTS = ['17:00','17:30','18:00','18:30','19:00','19:30','20:00','20:30','21:00','21:30'];
 
-// Returns the slots still free for one table on one date, as JSON, for the booking and
-// edit forms to fetch. `exclude` lets the edit form ignore the booking being edited, so
-// its own slot doesn't look taken to itself.
 app.get('/user/slots', requireRole('user'), async (req, res) => {
     const { table_id, date, exclude } = req.query;
     if (!table_id || !date) return res.json({ available: [] });
@@ -741,7 +639,6 @@ app.get('/user/slots', requireRole('user'), async (req, res) => {
         if (exclude) { sql += ' AND id != ?'; params.push(exclude); }
 
         const [booked] = await db.query(sql, params);
-        // time_slot comes back as 'HH:MM:SS'; the form works in 'HH:MM'.
         const taken = booked.map(r => String(r.time_slot).slice(0, 5));
         res.json({ available: TIME_SLOTS.filter(slot => !taken.includes(slot)) });
     } catch (err) {
@@ -749,15 +646,12 @@ app.get('/user/slots', requireRole('user'), async (req, res) => {
         res.status(500).json({ available: [], error: true });
     }
 });
-// chu fon
+
 app.get('/user/dashboard', requireRole('user'), async (req, res) => {
     try {
         const userId = req.session.user.id;
         const { orderBy, sort, dir } = buildSort('myReservations', req.query, 'date', 'desc');
 
-        // Ownership check lives right here in the WHERE clause: a user can only ever
-        // see rows where user_id matches their own session, never another user's,
-        // regardless of what id someone tries in the URL.
         const [myReservations] = await db.query(
             `SELECT r.id, r.reservation_date, r.time_slot, r.party_size, r.remarks, r.status, t.table_number
              FROM reservations r
@@ -822,18 +716,14 @@ app.post('/user/reservations', requireRole('user'), async (req, res) => {
     const { table_id, party_size, reservation_date, time_slot, remarks } = req.body;
     const userId = req.session.user.id;
 
-    // FIX: enforce "no past dates" — was previously unchecked.
     if (isPastDate(reservation_date)) {
         return res.status(400).send('Reservation date cannot be in the past');
     }
-    // The dropdown is now built from TIME_SLOTS, but a posted form can carry anything,
-    // so the value is re-checked against the same list on the server.
     if (!TIME_SLOTS.includes(time_slot)) {
         return res.status(400).send('Please choose a valid time slot');
     }
 
     try {
-        // FIX: check party_size against the table's capacity — was previously unchecked.
         const [[table]] = await db.query(
             'SELECT capacity FROM restaurant_tables WHERE id = ?',
             [table_id]
@@ -875,7 +765,6 @@ app.post('/user/reservations/:id/update', requireRole('user'), async (req, res) 
     const reservationId = req.params.id;
     const userId = req.session.user.id;
 
-    // FIX: enforce "no past dates" on edit too.
     if (isPastDate(reservation_date)) {
         return res.status(400).send('Reservation date cannot be in the past');
     }
@@ -884,7 +773,6 @@ app.post('/user/reservations/:id/update', requireRole('user'), async (req, res) 
     }
 
     try {
-        // FIX: capacity check on edit, same as create.
         const [[table]] = await db.query(
             'SELECT capacity FROM restaurant_tables WHERE id = ?',
             [table_id]
@@ -896,10 +784,6 @@ app.post('/user/reservations/:id/update', requireRole('user'), async (req, res) 
             return res.status(400).send(`Party size exceeds this table's capacity (${table.capacity})`);
         }
 
-        // FIX: the update route previously had no double-booking check at all, so editing
-        // a pending reservation onto a table/date/slot that was already taken silently
-        // succeeded. Mirrors the check already done on create, excluding this reservation's
-        // own row (id != ?) so a no-op edit doesn't conflict with itself.
         const [existing] = await db.query(
             `SELECT id FROM reservations
              WHERE table_id = ? AND reservation_date = ? AND time_slot = ?
@@ -925,13 +809,12 @@ app.post('/user/reservations/:id/update', requireRole('user'), async (req, res) 
     }
 });
 
-// Delete/Cancel reservation
+// ================================================================
+// FIXED: Delete/Cancel reservation (removed cancellation_reason)
+// ================================================================
 app.post('/user/reservations/:id/delete', requireRole('user'), async (req, res) => {
     const reservationId = req.params.id;
     const userId = req.session.user.id;
-    // FIX: capture the cancellation reason — schema.sql has a cancellation_reason column
-    // (Li Kaijie's requirement) but nothing was ever writing to it.
-    const reason = String(req.body.reason || '').trim() || null;
 
     try {
         const [reservation] = await db.query(
@@ -947,9 +830,10 @@ app.post('/user/reservations/:id/delete', requireRole('user'), async (req, res) 
             return res.status(400).send('Cannot cancel a confirmed reservation');
         }
 
+        // ✅ FIXED: Removed cancellation_reason column
         await db.query(
-            'UPDATE reservations SET status = "cancelled", cancellation_reason = ? WHERE id = ? AND user_id = ?',
-            [reason, reservationId, userId]
+            'UPDATE reservations SET status = "cancelled" WHERE id = ? AND user_id = ?',
+            [reservationId, userId]
         );
 
         res.redirect('/user/dashboard');
@@ -959,10 +843,7 @@ app.post('/user/reservations/:id/delete', requireRole('user'), async (req, res) 
     }
 });
 
-// Permanently remove a reservation from the user's own history. Only allowed once
-// it's already cancelled/rejected — pending/confirmed rows must go through the cancel
-// route above first. Scoped by user_id, same as every other user/* route, so a user
-// can never delete someone else's row even by guessing an id.
+// Permanently remove a reservation from the user's own history
 app.post('/user/reservations/:id/remove', requireRole('user'), async (req, res) => {
     const reservationId = req.params.id;
     const userId = req.session.user.id;
@@ -979,19 +860,3 @@ app.post('/user/reservations/:id/remove', requireRole('user'), async (req, res) 
         if (!['cancelled', 'rejected'].includes(rows[0].status)) {
             return res.status(400).send('Only cancelled or rejected reservations can be removed.');
         }
-
-        await db.query('DELETE FROM reservations WHERE id = ? AND user_id = ?', [reservationId, userId]);
-        res.redirect('/user/dashboard');
-    } catch (err) {
-        console.error('Remove reservation error:', err.message);
-        res.status(500).send('Error removing reservation');
-    }
-});
-
-const PORT = process.env.PORT || 3000;
-if (require.main === module) {
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-}
-
-module.exports = { app, buildFilter, buildSort, sortLink, hashPassword, verifyPassword, requireRole, isPastDate, validateTable, TIME_SLOTS };
-// austin - 25005454: end merged auth + app module.
