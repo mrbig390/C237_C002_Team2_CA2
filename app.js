@@ -843,7 +843,9 @@ app.post('/user/reservations/:id/delete', requireRole('user'), async (req, res) 
     }
 });
 
-// Permanently remove a reservation from the user's own history
+// ================================================================
+// FIXED: Permanently remove a reservation from the user's own history
+// ================================================================
 app.post('/user/reservations/:id/remove', requireRole('user'), async (req, res) => {
     const reservationId = req.params.id;
     const userId = req.session.user.id;
@@ -860,3 +862,22 @@ app.post('/user/reservations/:id/remove', requireRole('user'), async (req, res) 
         if (!['cancelled', 'rejected'].includes(rows[0].status)) {
             return res.status(400).send('Only cancelled or rejected reservations can be removed.');
         }
+
+        // ✅ ADDED: Delete the reservation
+        await db.query('DELETE FROM reservations WHERE id = ? AND user_id = ?', [reservationId, userId]);
+        res.redirect('/user/dashboard');
+    } catch (err) {
+        console.error('Remove reservation error:', err.message);
+        res.status(500).send('Error removing reservation');
+    }
+});
+
+// ================================================================
+// SERVER STARTUP
+// ================================================================
+const PORT = process.env.PORT || 3000;
+if (require.main === module) {
+    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+}
+
+module.exports = { app, buildFilter, buildSort, sortLink, hashPassword, verifyPassword, requireRole, isPastDate, validateTable, TIME_SLOTS };
