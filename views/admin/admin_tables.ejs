@@ -1,0 +1,46 @@
+<%- include('admin_head', { title: 'Tables' }) %>
+
+<p><a href="/admin/tables/new" class="btn btn-sm btn-primary">+ Add table</a></p>
+
+<% if (rows.length === 0) { %>
+  <p class="text-muted">No tables found.</p>
+<% } else { %>
+  <table class="table table-hover small">
+    <thead>
+      <tr>
+        <th><a href="<%= sortLink('id') %>" class="text-reset text-decoration-none">#<%= sort==='id' ? (dir==='asc'?' ▲':' ▼') : '' %></a></th>
+        <th>Picture</th>
+        <th><a href="<%= sortLink('table_number') %>" class="text-reset text-decoration-none">Table No.<%= sort==='table_number' ? (dir==='asc'?' ▲':' ▼') : '' %></a></th>
+        <th><a href="<%= sortLink('capacity') %>" class="text-reset text-decoration-none">Capacity<%= sort==='capacity' ? (dir==='asc'?' ▲':' ▼') : '' %></a></th>
+        <th><a href="<%= sortLink('location') %>" class="text-reset text-decoration-none">Location<%= sort==='location' ? (dir==='asc'?' ▲':' ▼') : '' %></a></th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% for (const t of rows) { %>
+        <tr>
+          <td><%= t.id %></td>
+          <td>
+            <% if (t.image) { %>
+              <img src="/images/<%= t.image %>" alt="Table <%= t.table_number %>" style="width: 60px; height: 60px; object-fit: cover;" class="img-thumbnail">
+            <% } else { %>
+              <span class="text-muted small">No picture</span>
+            <% } %>
+          </td>
+          <td><%= t.table_number %></td>
+          <td><%= t.capacity %></td>
+          <td><%= t.location %></td>
+          <td class="text-nowrap">
+            <a href="/admin/tables/<%= t.id %>/edit" class="btn btn-sm btn-outline-primary">Edit</a>
+            <form action="/admin/tables/<%= t.id %>/delete" method="POST" style="display:inline;"
+                  onsubmit="return confirm('Delete table <%= t.table_number %>? This fails if it has active reservations.')">
+              <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+            </form>
+          </td>
+        </tr>
+      <% } %>
+    </tbody>
+  </table>
+<% } %>
+
+<%- include('admin_foot') %>

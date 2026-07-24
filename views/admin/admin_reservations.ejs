@@ -1,0 +1,123 @@
+<%- include('admin_head', { title: 'Reservations' }) %>
+
+<form class="row g-2 align-items-end mb-3" method="get" action="/admin/reservations">
+  <div class="col-auto">
+    <label class="form-label small mb-0" for="status">Status</label>
+    <select class="form-select form-select-sm" id="status" name="status">
+      <option value="">All</option>
+      <% for (const s of Object.keys(badge)) { %>
+        <option value="<%= s %>" <%= filter.status === s ? 'selected' : '' %>><%= s %></option>
+      <% } %>
+    </select>
+  </div>
+  <div class="col-auto">
+    <label class="form-label small mb-0" for="date">Date</label>
+    <input class="form-control form-control-sm" type="date" id="date" name="date" value="<%= filter.date || '' %>">
+  </div>
+  <div class="col-auto">
+    <label class="form-label small mb-0" for="q">Search customer</label>
+    <input class="form-control form-control-sm" type="search" id="q" name="q"
+           placeholder="name or email" value="<%= filter.q || '' %>">
+  </div>
+  <div class="col-auto">
+    <button class="btn btn-sm btn-primary" type="submit">Filter</button>
+    <a class="btn btn-sm btn-outline-secondary" href="/admin/reservations">Reset</a>
+  </div>
+</form>
+
+<% if (rows.length === 0) { %>
+  <p class="text-muted">No reservations found.</p>
+<% } else { %>
+  <table class="table table-hover small">
+    <thead>
+      <tr>
+        <th><a href="<%= sortLink('id') %>" class="text-reset text-decoration-none">#<%= sort==='id' ? (dir==='asc'?' ▲':' ▼') : '' %></a></th>
+        <th><a href="<%= sortLink('customer') %>" class="text-reset text-decoration-none">Customer<%= sort==='customer' ? (dir==='asc'?' ▲':' ▼') : '' %></a></th>
+        <th><a href="<%= sortLink('table') %>" class="text-reset text-decoration-none">Table<%= sort==='table' ? (dir==='asc'?' ▲':' ▼') : '' %></a></th>
+        <th><a href="<%= sortLink('date') %>" class="text-reset text-decoration-none">Date<%= sort==='date' ? (dir==='asc'?' ▲':' ▼') : '' %></a></th>
+        <th><a href="<%= sortLink('slot') %>" class="text-reset text-decoration-none">Slot<%= sort==='slot' ? (dir==='asc'?' ▲':' ▼') : '' %></a></th>
+        <th><a href="<%= sortLink('party') %>" class="text-reset text-decoration-none">Party<%= sort==='party' ? (dir==='asc'?' ▲':' ▼') : '' %></a></th>
+        <th>Remarks</th>
+        <th><a href="<%= sortLink('status') %>" class="text-reset text-decoration-none">Status<%= sort==='status' ? (dir==='asc'?' ▲':' ▼') : '' %></a></th>
+        <th>Reason</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% for (const r of rows) { %>
+        <tr>
+          <td><%= r.id %></td>
+          <td>
+            <%= r.customer_name %><br>
+            <span class="text-muted"><%= r.customer_email %></span>
+          </td>
+          <td><%= r.table_number %></td>
+          <td><%= r.reservation_date %></td>
+          <td><%= String(r.time_slot).slice(0,5) %></td>
+          <td><%= r.party_size %></td>
+          <td class="text-truncate" style="max-width: 16rem;" title="<%= r.remarks %>"><%= r.remarks %></td>
+          <td><span class="badge text-bg-<%= badge[r.status] %>"><%= r.status %></span></td>
+          <td class="text-truncate" style="max-width: 12rem;" title="<%= r.cancellation_reason || '' %>">
+            <%= r.cancellation_reason || '-' %>
+          </td>
+          <td class="text-nowrap">
+            <%# ernest - status workflow: only the transitions that make sense for the
+                current status are offered, so the admin can't be shown an action the
+                server would just reject. %>
+            <% if (r.status !== 'confirmed') { %>
+              <form action="/admin/reservations/<%= r.id %>/status" method="POST" style="display:inline;">
+                <input type="hidden" name="status" value="confirmed">
+                <button type="submit" class="btn btn-sm btn-success">Approve</button>
+              </form>
+            <% } %>
+            <% if (r.status === 'pending' || r.status === 'confirmed') { %>
+              <%# Li Kaijie - cancellation reason box: reason is captured before the reject
+                  request is sent, so the admin's reasoning is stored alongside the status. %>
+              <button type="button" class="btn btn-sm btn-warning"
+                      data-bs-toggle="modal" data-bs-target="#rejectModal"
+                      data-res-id="<%= r.id %>">Reject</button>
+            <% } %>
+            <form action="/admin/reservations/<%= r.id %>/delete" method="POST" style="display:inline;"
+                  onsubmit="return confirm('Delete reservation #<%= r.id %> permanently? This cannot be undone.')">
+              <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+            </form>
+          </td>
+        </tr>
+      <% } %>
+    </tbody>
+  </table>
+<% } %>
+
+<%# Li Kaijie - Cancellation Reason Box (admin side): one shared modal, re-targeted to
+    whichever row's Reject button was clicked, so the admin's reason gets sent with the
+    status change instead of being lost like a plain confirm() would lose it. %>
+<div class="modal fade" id="rejectModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form id="rejectForm" method="POST" action="/admin/reservations/0/status" class="modal-content">
+      <input type="hidden" name="status" value="rejected">
+      <div class="modal-header">
+        <h5 class="modal-title">Reject reservation</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label small" for="rejectReason">Reason (optional)</label>
+        <textarea class="form-control form-control-sm" id="rejectReason" name="reason" rows="3"
+                  placeholder="Let the customer know why, e.g. fully booked, kitchen closed early..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-sm btn-warning">Reject reservation</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  document.getElementById('rejectModal').addEventListener('show.bs.modal', function (event) {
+    var resId = event.relatedTarget.getAttribute('data-res-id');
+    document.getElementById('rejectForm').action = '/admin/reservations/' + resId + '/status';
+    document.getElementById('rejectReason').value = '';
+  });
+</script>
+
+<%- include('admin_foot') %>

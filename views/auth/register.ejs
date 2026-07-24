@@ -1,0 +1,51 @@
+<!-- austin - 25005454: user and admin registration page. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register</title>
+    <link rel="stylesheet" href="/auth.css">
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <main class="auth-card">
+        <h1>Create account</h1>
+        <p>Register as a user or administrator.</p>
+        <% if (error) { %><div class="error" role="alert"><%= error %></div><% } %>
+        <form method="post" action="/register">
+            <label for="role">Account type</label>
+            <select id="role" name="role" required>
+                <option value="user" <%= values.role === 'user' ? 'selected' : '' %>>User</option>
+                <option value="admin" <%= values.role === 'admin' ? 'selected' : '' %>>Admin</option>
+            </select>
+            <label for="name">Full name</label>
+            <input id="name" name="name" value="<%= values.name %>" autocomplete="name" minlength="2" required>
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" value="<%= values.email %>" autocomplete="email" required>
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required>
+            <label for="confirmPassword">Confirm password</label>
+            <input id="confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" minlength="8" required>
+            <div id="adminCodeField" style="display: none;">
+                <label for="adminCode">Admin code (required for admin accounts — ask your site admin)</label>
+                <input id="adminCode" name="adminCode" type="password" autocomplete="off">
+            </div>
+            <button type="submit">Register</button>
+        </form>
+        <p class="switch">Already registered? <a href="/login">Log in</a></p>
+    </main>
+    <script>
+        // Only admin signups need the code — a plain user registration never sees this
+        // field at all, let alone needs to fill it in.
+        var roleSelect = document.getElementById('role');
+        var adminCodeField = document.getElementById('adminCodeField');
+        function toggleAdminCode() {
+            adminCodeField.style.display = roleSelect.value === 'admin' ? '' : 'none';
+        }
+        roleSelect.addEventListener('change', toggleAdminCode);
+        toggleAdminCode();
+    </script>
+</body>
+</html>
+<!-- austin - 25005454: end user and admin registration page. -->

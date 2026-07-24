@@ -1,0 +1,51 @@
+<%- include('admin_head', { title: 'Users' }) %>
+
+<% if (rows.length === 0) { %>
+  <p class="text-muted">No users found.</p>
+<% } else { %>
+  <table class="table table-hover small">
+    <thead>
+      <tr>
+        <th><a href="<%= sortLink('id') %>" class="text-reset text-decoration-none">#<%= sort==='id' ? (dir==='asc'?' ▲':' ▼') : '' %></a></th>
+        <th><a href="<%= sortLink('name') %>" class="text-reset text-decoration-none">Name<%= sort==='name' ? (dir==='asc'?' ▲':' ▼') : '' %></a></th>
+        <th><a href="<%= sortLink('email') %>" class="text-reset text-decoration-none">Email<%= sort==='email' ? (dir==='asc'?' ▲':' ▼') : '' %></a></th>
+        <th><a href="<%= sortLink('role') %>" class="text-reset text-decoration-none">Role<%= sort==='role' ? (dir==='asc'?' ▲':' ▼') : '' %></a></th>
+        <th><a href="<%= sortLink('created_at') %>" class="text-reset text-decoration-none">Joined<%= sort==='created_at' ? (dir==='asc'?' ▲':' ▼') : '' %></a></th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% for (const u of rows) { %>
+        <tr>
+          <td><%= u.id %></td>
+          <td><%= u.name %></td>
+          <td><%= u.email %></td>
+          <td>
+            <span class="badge text-bg-<%= u.role === 'admin' ? 'dark' : 'light' %>"><%= u.role %></span>
+          </td>
+          <td><%= String(u.created_at).slice(0, 10) %></td>
+          <td class="text-nowrap">
+            <% if (currentUser.id !== u.id) { %>
+              <%# ernest - role management: promote/demote the opposite of their current role. %>
+              <form action="/admin/users/<%= u.id %>/role" method="POST" style="display:inline;"
+                    onsubmit="return confirm('Change <%= u.name %> to <%= u.role === 'admin' ? 'user' : 'admin' %>?')">
+                <input type="hidden" name="role" value="<%= u.role === 'admin' ? 'user' : 'admin' %>">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                  <%= u.role === 'admin' ? 'Demote to user' : 'Promote to admin' %>
+                </button>
+              </form>
+              <form action="/admin/users/<%= u.id %>/delete" method="POST" style="display:inline;"
+                    onsubmit="return confirm('Delete user <%= u.name %>? This fails if they have active reservations.')">
+                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+              </form>
+            <% } else { %>
+              <span class="text-muted small">This is you</span>
+            <% } %>
+          </td>
+        </tr>
+      <% } %>
+    </tbody>
+  </table>
+<% } %>
+
+<%- include('admin_foot') %>

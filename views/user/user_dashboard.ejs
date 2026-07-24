@@ -1,0 +1,210 @@
+<%- include('user_head', { title: 'My Dashboard' }) %>
+
+<div class="row">
+  <!-- Left Column: User Info & New Reservation -->
+  <div class="col-md-4">
+    <div class="card mb-3">
+      <div class="card-header">
+        <h5>Welcome, <%= currentUser.name %>!</h5>
+      </div>
+      <div class="card-body">
+        <p><strong>Email:</strong> <%= currentUser.email %></p>
+        <p><strong>Role:</strong> <span class="badge text-bg-info"><%= currentUser.role %></span></p>
+      </div>
+    </div>
+
+    <!-- New Reservation Form -->
+    <div class="card">
+      <div class="card-header">
+        <h5>Make a Reservation</h5>
+      </div>
+      <div class="card-body">
+        <form action="/user/reservations" method="POST">
+          <div class="mb-2">
+            <label class="form-label small">Select Table</label>
+            <select class="form-select form-select-sm" name="table_id" id="tableSelect" required>
+              <option value="">Choose a table...</option>
+              <% availableTables.forEach(table => { %>
+                <option value="<%= table.id %>" data-capacity="<%= table.capacity %>">Table <%= table.table_number %> (Capacity: <%= table.capacity %>) - <%= table.location %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Party Size</label>
+            <input type="number" class="form-control form-control-sm" name="party_size" id="partyInput" min="1" required>
+            <div class="form-text" id="capHint"></div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Date</label>
+            <input type="date" class="form-control form-control-sm" name="reservation_date" id="dateInput" min="<%= new Date().toISOString().split('T')[0] %>" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Time Slot</label>
+            <select class="form-select form-select-sm" name="time_slot" id="slotSelect" required disabled>
+                <option value="">Pick a table and date first...</option>
+            </select>
+            <div class="form-text" id="slotHint"></div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Special Remarks</label>
+            <input type="text" class="form-control form-control-sm" name="remarks" placeholder="Dietary restrictions, special requests...">
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm w-100">Book Table</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Column: My Reservations -->
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5>My Reservations</h5>
+        <span class="badge text-bg-secondary"><%= myReservations.length %> total</span>
+      </div>
+      <div class="card-body">
+        <% if (myReservations.length === 0) { %>
+          <div class="text-center py-4">
+            <p class="text-muted">You have no reservations yet.</p>
+            <p class="small">Use the form on the left to book a table!</p>
+          </div>
+        <% } else { %>
+          <div class="table-responsive">
+            <table class="table table-hover small">
+              <thead>
+                <tr>
+                  <th><a href="<%= sortLink('table') %>" class="text-reset text-decoration-none">Table<%= sort==='table' ? (dir==='asc'?' ▲':' ▼') : '' %></a></th>
+                  <th><a href="<%= sortLink('date') %>" class="text-reset text-decoration-none">Date<%= sort==='date' ? (dir==='asc'?' ▲':' ▼') : '' %></a></th>
+                  <th><a href="<%= sortLink('slot') %>" class="text-reset text-decoration-none">Time<%= sort==='slot' ? (dir==='asc'?' ▲':' ▼') : '' %></a></th>
+                  <th><a href="<%= sortLink('party') %>" class="text-reset text-decoration-none">Party<%= sort==='party' ? (dir==='asc'?' ▲':' ▼') : '' %></a></th>
+                  <th>Remarks</th>
+                  <th><a href="<%= sortLink('status') %>" class="text-reset text-decoration-none">Status<%= sort==='status' ? (dir==='asc'?' ▲':' ▼') : '' %></a></th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% myReservations.forEach(r => { %>
+                  <tr>
+                    <td><strong>Table <%= r.table_number %></strong></td>
+                    <td><%= r.reservation_date %></td>
+                    <td><%= String(r.time_slot).slice(0,5) %></td>
+                    <td><%= r.party_size %></td>
+                    <td class="text-truncate" style="max-width: 100px;" title="<%= r.remarks || '' %>">
+                      <%= r.remarks || '-' %>
+                    </td>
+                    <td>
+                      <span class="badge text-bg-<%= badge[r.status] %>">
+                        <%= r.status %>
+                      </span>
+                    </td>
+                    <td>
+                      <% if (r.status === 'pending') { %>
+                        <a href="/user/reservations/<%= r.id %>/edit" class="btn btn-sm btn-outline-primary">Edit</a>
+                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                data-bs-toggle="modal" data-bs-target="#cancelModal"
+                                data-res-id="<%= r.id %>">Cancel</button>
+                      <% } else if (r.status === 'cancelled' || r.status === 'rejected') { %>
+                        <form action="/user/reservations/<%= r.id %>/remove" method="POST" style="display: inline;"
+                              onsubmit="return confirm('Remove this reservation from your history? This cannot be undone.')">
+                          <button type="submit" class="btn btn-sm btn-outline-secondary">Remove</button>
+                        </form>
+                      <% } else { %>
+                        <span class="text-muted small">No actions</span>
+                      <% } %>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<%# Li Kaijie - Cancellation Reason Box (user side): one shared modal, re-targeted to
+    whichever row's Cancel button was clicked. %>
+<div class="modal fade" id="cancelModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form id="cancelForm" method="POST" action="/user/reservations/0/delete" class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Cancel reservation</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label small" for="cancelReason">Reason (optional)</label>
+        <textarea class="form-control form-control-sm" id="cancelReason" name="reason" rows="3"
+                  placeholder="Let us know why, e.g. plans changed, booked elsewhere..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Nevermind</button>
+        <button type="submit" class="btn btn-sm btn-outline-danger">Cancel reservation</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  document.getElementById('cancelModal').addEventListener('show.bs.modal', function (event) {
+    var resId = event.relatedTarget.getAttribute('data-res-id');
+    document.getElementById('cancelForm').action = '/user/reservations/' + resId + '/delete';
+    document.getElementById('cancelReason').value = '';
+  });
+</script>
+
+<script>
+  // Dynamic availability: ask the server which slots are still free for the chosen
+  // table + date, instead of showing a fixed list that may already be booked.
+  var tableSelect = document.getElementById('tableSelect');
+  var dateInput   = document.getElementById('dateInput');
+  var slotSelect  = document.getElementById('slotSelect');
+  var slotHint    = document.getElementById('slotHint');
+  var partyInput  = document.getElementById('partyInput');
+  var capHint     = document.getElementById('capHint');
+
+  function label(slot) {
+    var h = Number(slot.slice(0, 2)), m = slot.slice(3, 5);
+    var suffix = h >= 12 ? 'PM' : 'AM';
+    var h12 = h % 12 === 0 ? 12 : h % 12;
+    return h12 + ':' + m + ' ' + suffix;
+  }
+
+  async function loadSlots() {
+    var opt = tableSelect.selectedOptions[0];
+    var cap = opt ? opt.dataset.capacity : null;
+    if (cap) { partyInput.max = cap; capHint.textContent = 'Max ' + cap + ' for this table.'; }
+    else { partyInput.removeAttribute('max'); capHint.textContent = ''; }
+
+    if (!tableSelect.value || !dateInput.value) {
+      slotSelect.innerHTML = '<option value="">Pick a table and date first...</option>';
+      slotSelect.disabled = true; slotHint.textContent = ''; return;
+    }
+    slotSelect.disabled = true; slotHint.textContent = 'Loading...';
+    try {
+      var res = await fetch('/user/slots?table_id=' + encodeURIComponent(tableSelect.value) +
+                            '&date=' + encodeURIComponent(dateInput.value));
+      var data = await res.json();
+      var slots = data.available || [];
+      if (slots.length === 0) {
+        slotSelect.innerHTML = '<option value="">No free slots</option>';
+        slotSelect.disabled = true;
+        slotHint.textContent = 'That table is fully booked on this date.';
+      } else {
+        slotSelect.innerHTML = '<option value="">Select Time</option>' +
+          slots.map(function (s) { return '<option value="' + s + '">' + label(s) + '</option>'; }).join('');
+        slotSelect.disabled = false;
+        slotHint.textContent = slots.length + ' slot(s) free.';
+      }
+    } catch (e) {
+      slotSelect.innerHTML = '<option value="">Error loading slots</option>';
+      slotSelect.disabled = true; slotHint.textContent = 'Could not load slots - try again.';
+    }
+  }
+
+  tableSelect.addEventListener('change', loadSlots);
+  dateInput.addEventListener('change', loadSlots);
+</script>
+
+<%- include('user_foot') %>

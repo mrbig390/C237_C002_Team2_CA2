@@ -1,0 +1,346 @@
+/* ==========================================================================
+   ernest — Reservation book theme
+   Written for this project (not a downloaded template). Layers on top of
+   Bootstrap 5.3 by overriding its variables and a small number of classes,
+   so none of the existing markup had to change.
+
+   Direction: an evening dining room. Deep teal-green surfaces, brass accents,
+   cool paper background. The signature detail is the status rail: every
+   reservation row carries a coloured tab on its left edge, the way a maitre d'
+   colour-tabs the pages of a reservation book, so the state of the whole
+   service reads at a glance without hunting through the badge column.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Karla:wght@400;500;700&display=swap');
+
+:root {
+  /* Surfaces */
+  --rr-green-900: #10302B;   /* navbar, headings */
+  --rr-green-700: #1B4B43;
+  --rr-paper:     #F6F8F7;   /* page background */
+  --rr-card:      #FFFFFF;
+  --rr-line:      #DCE4E1;
+
+  /* Accent */
+  --rr-brass:     #B8862F;
+  --rr-brass-dk:  #93691F;
+  --rr-brass-lt:  #F3E8CD;
+
+  /* Text */
+  --rr-ink:       #16201D;
+  --rr-muted:     #5F6C68;
+
+  /* Reservation states — these carry meaning, so they are not decorative */
+  --rr-pending:   #A9761A;
+  --rr-confirmed: #2C6A50;
+  --rr-rejected:  #9A3B2C;
+  --rr-cancelled: #78827E;
+
+  /* Bootstrap hand-off */
+  --bs-body-bg: var(--rr-paper);
+  --bs-body-color: var(--rr-ink);
+  --bs-border-color: var(--rr-line);
+  --bs-link-color: var(--rr-green-700);
+  --bs-link-hover-color: var(--rr-brass-dk);
+  --bs-font-sans-serif: 'Karla', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+body {
+  font-family: var(--bs-font-sans-serif);
+  background: var(--rr-paper);
+  color: var(--rr-ink);
+}
+
+/* --- Typography ------------------------------------------------------- */
+
+h1, h2, h3, h4, .navbar-brand {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--rr-green-900);
+}
+
+/* The page title carries a short brass rule — a quiet full stop under the
+   heading that ties every screen back to the same identity. */
+.container > h2:first-of-type {
+  position: relative;
+  padding-bottom: 0.6rem;
+  margin-bottom: 1.5rem;
+}
+.container > h2:first-of-type::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 2.5rem;
+  height: 2px;
+  background: var(--rr-brass);
+}
+
+.text-muted { color: var(--rr-muted) !important; }
+
+/* Times, dates and party sizes line up column-wise when the digits are
+   tabular — worth it on a screen that is mostly a schedule. */
+td, .display-6 { font-variant-numeric: tabular-nums; }
+
+/* --- Navbar ----------------------------------------------------------- */
+
+.navbar.bg-dark {
+  background: var(--rr-green-900) !important;
+  border-bottom: 2px solid var(--rr-brass);
+  padding-block: 0.7rem;
+}
+.navbar-brand {
+  color: #fff !important;
+  font-size: 1.2rem;
+}
+/* A small brass dot before the wordmark, like the brass plate on a host stand. */
+.navbar-brand::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 0.55rem;
+  border-radius: 50%;
+  background: var(--rr-brass);
+  vertical-align: middle;
+}
+.navbar-dark .nav-link {
+  color: rgba(255, 255, 255, 0.78) !important;
+  font-weight: 500;
+}
+.navbar-dark .nav-link:hover,
+.navbar-dark .nav-link:focus-visible { color: #fff !important; }
+.navbar-text { color: rgba(255, 255, 255, 0.72) !important; }
+
+/* --- Cards ------------------------------------------------------------ */
+
+.card {
+  background: var(--rr-card);
+  border: 1px solid var(--rr-line);
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(16, 48, 43, 0.04);
+}
+.card-header {
+  background: transparent;
+  border-bottom: 1px solid var(--rr-line);
+  font-weight: 700;
+}
+/* Dashboard counters read as small brass-topped plates rather than generic tiles. */
+.card.text-center { border-top: 2px solid var(--rr-brass); }
+.card .display-6 {
+  font-family: 'Fraunces', Georgia, serif;
+  color: var(--rr-green-900);
+}
+
+/* --- Tables ----------------------------------------------------------- */
+
+.table {
+  --bs-table-bg: var(--rr-card);
+  --bs-table-hover-bg: #EEF3F1;
+  border-color: var(--rr-line);
+  margin-bottom: 0;
+}
+.table > thead th {
+  background: var(--rr-green-900);
+  color: #fff;
+  font-weight: 500;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-bottom: 0;
+  white-space: nowrap;
+}
+.table > thead th a.text-reset { color: #fff !important; }
+.table > tbody td {
+  vertical-align: middle;
+  border-color: var(--rr-line);
+}
+/* Tables live inside a bordered plate so they read as one object on the page. */
+.table-responsive, .table {
+  border: 1px solid var(--rr-line);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--rr-card);
+}
+.table-responsive > .table { border: 0; border-radius: 0; }
+
+/* SIGNATURE — the status rail.
+   :has() lets each row pick up its own state colour straight from the badge it
+   already contains, so no view markup had to change to support this. */
+.table > tbody > tr > td:first-child { box-shadow: inset 3px 0 0 transparent; }
+.table > tbody > tr:has(.text-bg-warning)   > td:first-child { box-shadow: inset 3px 0 0 var(--rr-pending); }
+.table > tbody > tr:has(.text-bg-success)   > td:first-child { box-shadow: inset 3px 0 0 var(--rr-confirmed); }
+.table > tbody > tr:has(.text-bg-danger)    > td:first-child { box-shadow: inset 3px 0 0 var(--rr-rejected); }
+.table > tbody > tr:has(.text-bg-secondary) > td:first-child { box-shadow: inset 3px 0 0 var(--rr-cancelled); }
+
+/* --- Status badges ---------------------------------------------------- */
+
+.badge {
+  font-weight: 700;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.34em 0.62em;
+  border-radius: 2px;
+}
+.badge.text-bg-warning   { background: var(--rr-pending)   !important; color: #fff !important; }
+.badge.text-bg-success   { background: var(--rr-confirmed) !important; color: #fff !important; }
+.badge.text-bg-danger    { background: var(--rr-rejected)  !important; color: #fff !important; }
+.badge.text-bg-secondary { background: var(--rr-cancelled) !important; color: #fff !important; }
+.badge.text-bg-dark      { background: var(--rr-green-900) !important; color: #fff !important; }
+.badge.text-bg-light {
+  background: var(--rr-brass-lt) !important;
+  color: var(--rr-brass-dk) !important;
+  border: 1px solid rgba(184, 134, 47, 0.3);
+}
+
+/* --- Buttons ---------------------------------------------------------- */
+
+.btn {
+  border-radius: 3px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.btn-primary {
+  --bs-btn-bg: var(--rr-green-700);
+  --bs-btn-border-color: var(--rr-green-700);
+  --bs-btn-hover-bg: var(--rr-green-900);
+  --bs-btn-hover-border-color: var(--rr-green-900);
+  --bs-btn-active-bg: var(--rr-green-900);
+}
+.btn-success {
+  --bs-btn-bg: var(--rr-confirmed);
+  --bs-btn-border-color: var(--rr-confirmed);
+  --bs-btn-hover-bg: #235640;
+  --bs-btn-hover-border-color: #235640;
+}
+.btn-warning {
+  --bs-btn-bg: var(--rr-brass);
+  --bs-btn-border-color: var(--rr-brass);
+  --bs-btn-color: #fff;
+  --bs-btn-hover-bg: var(--rr-brass-dk);
+  --bs-btn-hover-border-color: var(--rr-brass-dk);
+  --bs-btn-hover-color: #fff;
+}
+.btn-outline-primary {
+  --bs-btn-color: var(--rr-green-700);
+  --bs-btn-border-color: var(--rr-green-700);
+  --bs-btn-hover-bg: var(--rr-green-700);
+  --bs-btn-hover-border-color: var(--rr-green-700);
+}
+.btn-outline-danger {
+  --bs-btn-color: var(--rr-rejected);
+  --bs-btn-border-color: rgba(154, 59, 44, 0.5);
+  --bs-btn-hover-bg: var(--rr-rejected);
+  --bs-btn-hover-border-color: var(--rr-rejected);
+}
+.btn-outline-light { --bs-btn-border-color: rgba(255, 255, 255, 0.45); }
+/* Action cells hold several small buttons — give them room to breathe. */
+td .btn + .btn, td form + form, td .btn + form, td form + .btn { margin-left: 0.25rem; }
+
+/* --- Forms ------------------------------------------------------------ */
+
+.form-label { font-weight: 700; color: var(--rr-green-900); }
+.form-control, .form-select {
+  border-color: var(--rr-line);
+  border-radius: 3px;
+}
+.form-control:focus, .form-select:focus {
+  border-color: var(--rr-brass);
+  box-shadow: 0 0 0 3px rgba(184, 134, 47, 0.18);
+}
+.form-text { color: var(--rr-muted); }
+
+/* --- Flash messages --------------------------------------------------- */
+
+.alert {
+  border: 1px solid transparent;
+  border-left-width: 3px;
+  border-radius: 3px;
+}
+.alert-success {
+  background: #EAF2ED;
+  border-color: var(--rr-confirmed);
+  color: #1F4C39;
+}
+.alert-danger {
+  background: #F8ECEA;
+  border-color: var(--rr-rejected);
+  color: #7A2C20;
+}
+.alert-light.border { background: var(--rr-card); border-color: var(--rr-line) !important; }
+
+/* --- Accessibility & motion ------------------------------------------- */
+
+a:focus-visible,
+button:focus-visible,
+.btn:focus-visible,
+.nav-link:focus-visible {
+  outline: 2px solid var(--rr-brass);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* --- Small screens ---------------------------------------------------- */
+
+@media (max-width: 575.98px) {
+  .container > h2:first-of-type { font-size: 1.5rem; }
+  .table { font-size: 0.85rem; }
+  td .btn { margin-bottom: 0.2rem; }
+}
+
+/* ==========================================================================
+   Login and registration
+   Austin's auth.css builds those two pages without Bootstrap, so this block
+   re-skins his existing markup in the same palette instead of replacing it.
+   ========================================================================== */
+
+body:has(.auth-card) {
+  background:
+    radial-gradient(circle at 15% 0%, rgba(184, 134, 47, 0.10), transparent 45%),
+    var(--rr-green-900);
+  font-family: var(--bs-font-sans-serif);
+  color: var(--rr-ink);
+}
+.auth-card {
+  border-radius: 5px;
+  border-top: 3px solid var(--rr-brass);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.32);
+}
+.auth-card h1 {
+  font-family: 'Fraunces', Georgia, serif;
+  color: var(--rr-green-900);
+}
+.auth-card p { color: var(--rr-muted); }
+.auth-card label { color: var(--rr-green-900); }
+.auth-card input,
+.auth-card select {
+  border-color: var(--rr-line);
+  border-radius: 3px;
+}
+.auth-card input:focus,
+.auth-card select:focus {
+  outline: 3px solid rgba(184, 134, 47, 0.22);
+  border-color: var(--rr-brass);
+}
+.auth-card button {
+  border-radius: 3px;
+  background: var(--rr-green-700);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.auth-card button:hover { background: var(--rr-green-900); }
+.auth-card a { color: var(--rr-brass-dk); }
+.auth-card .error {
+  border-radius: 3px;
+  background: #F8ECEA;
+  color: #7A2C20;
+  border-left: 3px solid var(--rr-rejected);
+}

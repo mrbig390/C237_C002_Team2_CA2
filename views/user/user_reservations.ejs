@@ -1,0 +1,117 @@
+<%- include('user_head', { title: 'Edit Reservation' }) %>
+
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">
+        <h5>Edit Reservation #<%= reservation.id %></h5>
+        <small class="text-muted">Table <%= reservation.table_number %> on <%= reservation.reservation_date %></small>
+      </div>
+      <div class="card-body">
+        <form action="/user/reservations/<%= reservation.id %>/update" method="POST">
+          
+          <div class="mb-2">
+            <label class="form-label small">Select Table</label>
+            <select class="form-select form-select-sm" name="table_id" id="tableSelect" required>
+              <% availableTables.forEach(table => { %>
+                <option value="<%= table.id %>" data-capacity="<%= table.capacity %>" <%= table.id === reservation.table_id ? 'selected' : '' %>>
+                  Table <%= table.table_number %> (Capacity: <%= table.capacity %>)
+                </option>
+              <% }) %>
+            </select>
+          </div>
+          
+          <div class="mb-2">
+            <label class="form-label small">Party Size</label>
+            <input type="number" class="form-control form-control-sm" name="party_size" 
+                   value="<%= reservation.party_size %>" id="partyInput" min="1" required>
+            <div class="form-text" id="capHint"></div>
+          </div>
+          
+          <div class="mb-2">
+            <label class="form-label small">Date</label>
+            <input type="date" class="form-control form-control-sm" name="reservation_date" 
+                   value="<%= reservation.reservation_date %>" id="dateInput" min="<%= new Date().toISOString().split('T')[0] %>" required>
+          </div>
+          
+          <div class="mb-2">
+            <label class="form-label small">Time Slot</label>
+            <select class="form-select form-select-sm" name="time_slot" id="slotSelect" required>
+              <option value="<%= String(reservation.time_slot).slice(0,5) %>" selected><%= String(reservation.time_slot).slice(0,5) %> (current)</option>
+            </select>
+            <div class="form-text" id="slotHint">Change table or date to see other free slots.</div>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label small">Special Remarks</label>
+            <input type="text" class="form-control form-control-sm" name="remarks" 
+                   value="<%= reservation.remarks || '' %>" placeholder="Dietary restrictions, special requests...">
+          </div>
+          
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary btn-sm">Update Reservation</button>
+            <a href="/user/dashboard" class="btn btn-secondary btn-sm">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+  // Same availability loader as the booking form, with one difference: this booking's
+  // own slot must stay selectable, so its id is passed as `exclude` and the current
+  // value is kept at the top of the list.
+  var tableSelect = document.getElementById('tableSelect');
+  var dateInput   = document.getElementById('dateInput');
+  var slotSelect  = document.getElementById('slotSelect');
+  var slotHint    = document.getElementById('slotHint');
+  var partyInput  = document.getElementById('partyInput');
+  var capHint     = document.getElementById('capHint');
+  var reservationId = '<%= reservation.id %>';
+  var currentSlot   = '<%= String(reservation.time_slot).slice(0,5) %>';
+
+  function label(slot) {
+    var h = Number(slot.slice(0, 2)), m = slot.slice(3, 5);
+    var suffix = h >= 12 ? 'PM' : 'AM';
+    var h12 = h % 12 === 0 ? 12 : h % 12;
+    return h12 + ':' + m + ' ' + suffix;
+  }
+
+  function showCapacity() {
+    var opt = tableSelect.selectedOptions[0];
+    var cap = opt ? opt.dataset.capacity : null;
+    if (cap) { partyInput.max = cap; capHint.textContent = 'Max ' + cap + ' for this table.'; }
+    else { partyInput.removeAttribute('max'); capHint.textContent = ''; }
+  }
+
+  async function loadSlots() {
+    showCapacity();
+    if (!tableSelect.value || !dateInput.value) return;
+    slotSelect.disabled = true; slotHint.textContent = 'Loading...';
+    try {
+      var res = await fetch('/user/slots?table_id=' + encodeURIComponent(tableSelect.value) +
+                            '&date=' + encodeURIComponent(dateInput.value) +
+                            '&exclude=' + encodeURIComponent(reservationId));
+      var data = await res.json();
+      var slots = data.available || [];
+      if (slots.indexOf(currentSlot) === -1) slots = [currentSlot].concat(slots);
+      slotSelect.innerHTML = slots.map(function (s) {
+        return '<option value="' + s + '"' + (s === currentSlot ? ' selected' : '') + '>' +
+               label(s) + (s === currentSlot ? ' (current)' : '') + '</option>';
+      }).join('');
+      slotSelect.disabled = false;
+      slotHint.textContent = slots.length + ' slot(s) available.';
+    } catch (e) {
+      slotSelect.disabled = false;
+      slotHint.textContent = 'Could not load slots - keeping your current time.';
+    }
+  }
+
+  tableSelect.addEventListener('change', loadSlots);
+  dateInput.addEventListener('change', loadSlots);
+  loadSlots();
+</script>
+
+<%- include('user_foot') %>

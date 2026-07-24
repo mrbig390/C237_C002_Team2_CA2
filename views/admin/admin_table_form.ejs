@@ -1,0 +1,47 @@
+<%- include('admin_head', { title: table ? 'Edit Table' : 'Add Table' }) %>
+
+<%# ernest - one form serves both add and edit: `table` is null when adding, so the
+    action URL and button label switch off it rather than duplicating the whole form. %>
+<form method="POST" action="<%= table ? '/admin/tables/' + table.id + '/update' : '/admin/tables' %>"
+      enctype="multipart/form-data" class="row g-3" style="max-width: 32rem;">
+
+  <div class="col-12">
+    <label class="form-label small" for="table_number">Table number</label>
+    <input class="form-control form-control-sm" type="text" id="table_number" name="table_number"
+           maxlength="20" required value="<%= values.table_number || '' %>" placeholder="e.g. T7">
+    <div class="form-text">Must be unique.</div>
+  </div>
+
+  <div class="col-12">
+    <label class="form-label small" for="capacity">Capacity</label>
+    <input class="form-control form-control-sm" type="number" id="capacity" name="capacity"
+           min="1" max="100" required value="<%= values.capacity || '' %>">
+    <div class="form-text">Maximum party size this table can seat.</div>
+  </div>
+
+  <div class="col-12">
+    <label class="form-label small" for="location">Location</label>
+    <input class="form-control form-control-sm" type="text" id="location" name="location"
+           maxlength="50" value="<%= values.location || '' %>" placeholder="e.g. Window, Outdoor">
+    <div class="form-text">Optional.</div>
+  </div>
+
+  <div class="col-12">
+    <label class="form-label small" for="image">Table picture</label>
+    <% if (values.image) { %>
+      <div class="mb-2">
+        <img src="/images/<%= values.image %>" alt="Current table picture" style="max-width: 160px;" class="img-thumbnail">
+      </div>
+      <input type="hidden" name="currentImage" value="<%= values.image %>">
+    <% } %>
+    <input class="form-control form-control-sm" type="file" id="image" name="image" accept="image/*">
+    <div class="form-text"><%= values.image ? 'Leave blank to keep the current picture.' : 'Optional.' %></div>
+  </div>
+
+  <div class="col-12">
+    <button type="submit" class="btn btn-sm btn-primary"><%= table ? 'Save changes' : 'Add table' %></button>
+    <a href="/admin/tables" class="btn btn-sm btn-outline-secondary">Cancel</a>
+  </div>
+</form>
+
+<%- include('admin_foot') %>
